@@ -38,14 +38,20 @@ description: >
 
 견적서 이미지를 `./scripts/run_pipeline.py`로 분석한다.
 
+리포트 저장 경로는 사용자의 **바탕화면**을 사용하라:
+- macOS/Linux: `~/Desktop/`
+- Windows: `%USERPROFILE%\Desktop\`
+
+> `python3`가 안 되면 `python`으로 대체하라.
+
 ```bash
-python ./scripts/run_pipeline.py /path/to/estimate.jpg --output /tmp/report.md --pdf /tmp/report.pdf
+python3 ./scripts/run_pipeline.py /path/to/estimate.jpg --output ~/Desktop/견적서_검증_리포트.md --pdf ~/Desktop/견적서_검증_리포트.pdf
 ```
 
 **다중 페이지인 경우:**
 
 ```bash
-python ./scripts/run_pipeline.py page1.jpg page2.jpg page3.jpg --output /tmp/report.md --pdf /tmp/report.pdf
+python3 ./scripts/run_pipeline.py page1.jpg page2.jpg page3.jpg --output ~/Desktop/견적서_검증_리포트.md --pdf ~/Desktop/견적서_검증_리포트.pdf
 ```
 
 `--pdf` 옵션을 사용하면 색상 코드 배지, 비교 테이블, 판정 박스가 포함된 전문 디자인 PDF 리포트가 함께 생성된다.
@@ -62,7 +68,7 @@ OCR에서 차량명/연식을 제대로 읽지 못한 경우, 사용자에게 �
 사용자가 답하면 `--vehicle` 옵션으로 다시 실행:
 
 ```bash
-python ./scripts/run_pipeline.py /path/to/estimate.jpg --vehicle "스포티지 2022" --output /tmp/report.md --pdf /tmp/report.pdf
+python3 ./scripts/run_pipeline.py /path/to/estimate.jpg --vehicle "스포티지 2022" --output ~/Desktop/견적서_검증_리포트.md --pdf ~/Desktop/견적서_검증_리포트.pdf
 ```
 
 ### Step 4: 리포트 검토 (출력 보류)
