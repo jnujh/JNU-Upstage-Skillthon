@@ -39,14 +39,16 @@ description: >
 견적서 이미지를 `./scripts/run_pipeline.py`로 분석한다.
 
 ```bash
-python ./scripts/run_pipeline.py /path/to/estimate.jpg --output /tmp/report.md
+python ./scripts/run_pipeline.py /path/to/estimate.jpg --output /tmp/report.md --pdf /tmp/report.pdf
 ```
 
 **다중 페이지인 경우:**
 
 ```bash
-python ./scripts/run_pipeline.py page1.jpg page2.jpg page3.jpg --output /tmp/report.md
+python ./scripts/run_pipeline.py page1.jpg page2.jpg page3.jpg --output /tmp/report.md --pdf /tmp/report.pdf
 ```
+
+`--pdf` 옵션을 사용하면 색상 코드 배지, 비교 테이블, 판정 박스가 포함된 전문 디자인 PDF 리포트가 함께 생성된다.
 
 ### Step 3: 차량 정보 보정 (필요 시)
 
@@ -60,7 +62,7 @@ OCR에서 차량명/연식을 제대로 읽지 못한 경우, 사용자에게 �
 사용자가 답하면 `--vehicle` 옵션으로 다시 실행:
 
 ```bash
-python ./scripts/run_pipeline.py /path/to/estimate.jpg --vehicle "스포티지 2022" --output /tmp/report.md
+python ./scripts/run_pipeline.py /path/to/estimate.jpg --vehicle "스포티지 2022" --output /tmp/report.md --pdf /tmp/report.pdf
 ```
 
 ### Step 4: 리포트 검토 (출력 보류)
@@ -74,6 +76,8 @@ python ./scripts/run_pipeline.py /path/to/estimate.jpg --vehicle "스포티지 2
 - 종합 제안
 
 리포트에 "비교불가" 항목이 있다면 **사용자에게 출력하기 전에** Step 5의 웹 검색 보강을 먼저 수행하라. 보강이 모두 끝난 최종 리포트만 사용자에게 1회 전달한다.
+
+최종 리포트 전달 시 PDF 파일을 우선 안내하라. PDF 리포트는 색상 코드 판정 배지와 전문적 레이아웃이 적용되어 가독성이 높다.
 
 ### Step 5: 비교불가 항목 웹 검색 (필수)
 
@@ -165,7 +169,8 @@ car-repair-estimate-validator/
 │   ├── lookup_mobis.py            # 모비스 간단검색 웹 조회 (Playwright)
 │   ├── enhance_with_synonyms.py   # 동의어 사전 매핑 (미매칭 항목 재조회)
 │   ├── verify_estimate.py         # 검증 엔진 (편차 계산 + 판정)
-│   └── generate_report.py         # 리포트 생성 (마크다운)
+│   ├── generate_report.py         # 리포트 생성 (마크다운)
+│   └── generate_pdf_report.py    # PDF 리포트 생성 (HTML→PDF, Playwright)
 ├── references/
 │   ├── architecture.md                   # 기술 스택 상세 (자세한 구성은 이 파일 참조)
 │   ├── parsed-estimate-schema.json       # ParsedEstimate 데이터 모델

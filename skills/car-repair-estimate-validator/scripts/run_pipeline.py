@@ -94,6 +94,7 @@ from smart_lookup import run_smart_lookup
 from enhance_with_synonyms import enhance_lookup_result
 from verify_estimate import verify_estimate
 from generate_report import generate_report
+from generate_pdf_report import generate_pdf_report
 
 
 # ─── 파이프라인 ───────────────────────────────────────────────────────
@@ -103,6 +104,7 @@ def run_pipeline(
     vehicle_hint: str = "",
     save_intermediate: bool = False,
     output_dir: str = "",
+    pdf_output: str = "",
 ) -> dict:
     """
     견적서 이미지 → 검증 리포트 전체 파이프라인.
@@ -230,6 +232,12 @@ def run_pipeline(
     print("[6/6] 리포트 생성 중...", file=sys.stderr)
     report_md = generate_report(verify_result)
 
+    report_pdf_path = ""
+    if pdf_output:
+        print("  PDF 리포트 생성 중...", file=sys.stderr)
+        report_pdf_path = generate_pdf_report(verify_result, pdf_output)
+        print(f"  → PDF 저장: {report_pdf_path}", file=sys.stderr)
+
     elapsed = time.time() - t_start
     print(f"\n✅ 완료 ({elapsed:.1f}초)", file=sys.stderr)
     print(f"API 호출: IE {api_calls['information_extract']}회, "
@@ -239,6 +247,7 @@ def run_pipeline(
 
     return {
         "report_md": report_md,
+        "report_pdf": report_pdf_path,
         "verify_result": verify_result,
         "ocr_result": ocr_result,
         "vehicle_match": vehicle_match,
@@ -269,6 +278,7 @@ if __name__ == "__main__":
     parser.add_argument("--vehicle", default="", help="차량명 힌트 (OCR에서 못 읽었을 때)")
     parser.add_argument("--output", "-o", default="", help="리포트 저장 경로 (.md)")
     parser.add_argument("--json", action="store_true", help="JSON 결과 출력 (리포트 대신)")
+    parser.add_argument("--pdf", default="", help="PDF 리포트 저장 경로 (.pdf)")
     parser.add_argument("--save-intermediate", action="store_true", help="중간 결과 JSON 저장")
     parser.add_argument("--skip-dep-check", action="store_true", help="의존성 체크 스킵")
     args = parser.parse_args()
@@ -291,6 +301,7 @@ if __name__ == "__main__":
         vehicle_hint=args.vehicle,
         save_intermediate=args.save_intermediate,
         output_dir=output_dir,
+        pdf_output=args.pdf,
     )
 
     if "error" in result:
