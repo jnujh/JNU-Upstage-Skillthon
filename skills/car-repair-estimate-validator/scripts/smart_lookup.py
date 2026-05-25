@@ -1,3 +1,4 @@
+from __future__ import annotations
 # -*- coding: utf-8 -*-
 """
 Solar Chat 기반 스마트 가격 조회 스크립트
@@ -251,7 +252,10 @@ def run_smart_lookup(ocr_result: dict, maker: str = "H", cat_seq: str = "", vehi
             needed_parts.add(mt)
 
     if part_numbers or (needed_parts and cat_seq):
-        from lookup_mobis import create_stealth_browser, search_parts, parse_parts_html
+        from lookup_mobis import (
+            create_stealth_browser, search_parts, parse_parts_html,
+            check_blacklist, MobisBlacklistError
+        )
         from playwright.sync_api import sync_playwright
 
         with sync_playwright() as p:
@@ -259,32 +263,39 @@ def run_smart_lookup(ocr_result: dict, maker: str = "H", cat_seq: str = "", vehi
             page.goto("https://www.mobis-as.com/simple_search_part.do", timeout=15000)
             page.wait_for_load_state("networkidle", timeout=10000)
 
-            # 부품번호 직접 검색 (매 검색 전 페이지 새로고침 필요)
-            for ptno, desc in part_numbers.items():
-                page.goto("https://www.mobis-as.com/simple_search_part.do", timeout=15000)
-                page.wait_for_load_state("networkidle", timeout=10000)
-                html = search_parts(page, maker=maker, srch_type="ptno", search_term=ptno)
-                result = parse_parts_html(html)
-                if result["total"] > 0:
-                    mobis_results[f"ptno:{ptno}"] = result
-                    print(f"  모비스 부품번호 '{ptno}': {result['total']}건 ({result['parts'][0]['price_krw']:,}원)", file=sys.stderr)
-                else:
-                    print(f"  모비스 부품번호 '{ptno}': 조회 불가", file=sys.stderr)
+            # 블랙리스트 사전 확인
+            if check_blacklist(page):
+                print("  ⛔ 모비스 IP 블랙리스트 감지! 부품 가격 조회를 건너뜁니다.", file=sys.stderr)
+                print("  → 해제 방법: 브라우저에서 https://www.mobis-as.com/simple_search_part.do 접속 후 휴대폰 인증", file=sys.stderr)
+                browser.close()
+            else:
+                try:
+                    # 부품번호 직접 검색 (세션 유지, 페이지 리로드 없이)
+                    for ptno, desc in part_numbers.items():
+                        html = search_parts(page, maker=maker, srch_type="ptno", search_term=ptno)
+                        result = parse_parts_html(html)
+                        if result["total"] > 0:
+                            mobis_results[f"ptno:{ptno}"] = result
+                            print(f"  모비스 부품번호 '{ptno}': {result['total']}건 ({result['parts'][0]['price_krw']:,}원)", file=sys.stderr)
+                        else:
+                            print(f"  모비스 부품번호 '{ptno}': 조회 불가", file=sys.stderr)
 
-            # 부품명 검색
-            if cat_seq:
-                for part_name in needed_parts:
-                    page.goto("https://www.mobis-as.com/simple_search_part.do", timeout=15000)
-                    page.wait_for_load_state("networkidle", timeout=10000)
-                    html = search_parts(page, maker=maker, vtyp="P", cat_seq=cat_seq, search_term=part_name)
-                    result = parse_parts_html(html)
-                    mobis_results[part_name] = result
-                    if result["total"] > 0:
-                        print(f"  모비스 '{part_name}': {result['total']}건", file=sys.stderr)
-                    else:
-                        print(f"  모비스 '{part_name}': 0건", file=sys.stderr)
+                    # 부품명 검색
+                    if cat_seq:
+                        for part_name in needed_parts:
+                            html = search_parts(page, maker=maker, vtyp="P", cat_seq=cat_seq, search_term=part_name)
+                            result = parse_parts_html(html)
+                            mobis_results[part_name] = result
+                            if result["total"] > 0:
+                                print(f"  모비스 '{part_name}': {result['total']}건", file=sys.stderr)
+                            else:
+                                print(f"  모비스 '{part_name}': 0건", file=sys.stderr)
 
-            browser.close()
+                except MobisBlacklistError as e:
+                    print(f"  ⛔ {e}", file=sys.stderr)
+                    print("  → 남은 모비스 조회를 건너뜁니다.", file=sys.stderr)
+                finally:
+                    browser.close()
 
     # Step 4: 결과 조합
     results = []

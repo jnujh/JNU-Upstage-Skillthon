@@ -18,8 +18,17 @@ Playwright stealth 모드로 봇 감지를 우회하여 부품 가격을 조회�
 import re
 import json
 import sys
+import time
 import argparse
 from playwright.sync_api import sync_playwright
+
+# 요청 간 최소 대기 시간 (초) — 2초 이하면 실시간 봇 감지 발동
+REQUEST_DELAY = 3.0
+
+
+class MobisBlacklistError(Exception):
+    """IP가 모비스 블랙리스트에 등록되었을 때 발생"""
+    pass
 
 
 def create_stealth_browser(playwright):
@@ -32,22 +41,70 @@ def create_stealth_browser(playwright):
         ]
     )
     context = browser.new_context(
-        user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         viewport={'width': 1920, 'height': 1080},
         locale='ko-KR'
     )
     page = context.new_page()
     page.add_init_script("""
         Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+        Object.defineProperty(navigator, 'plugins', {
+            get: () => [
+                { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+                { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
+                { name: 'Native Client', filename: 'internal-nacl-plugin' }
+            ]
+        });
+        Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] });
+        window.chrome = { runtime: {} };
     """)
     return browser, page
 
 
+def check_blacklist(page) -> bool:
+    """
+    현재 세션이 블랙리스트 상태인지 확인. True면 차단됨.
+    검색 AJAX를 한 번 보내서 응답의 black 필드로 판단한다.
+    (메인 페이지 DOM의 layer_black은 항상 존재하는 템플릿이므로 사용하지 않는다)
+    """
+    try:
+        # 가벼운 테스트 검색으로 블랙리스트 여부 확인
+        resp = page.evaluate("""
+            async () => {
+                const resp = await fetch(
+                    "/simple_search_partLoad_v2.do?pageIndex=1&hkgb=H&vtyp=P&catSeq=&srchType=ptno&inText=00000TEST",
+                    { credentials: "same-origin", headers: { "X-Requested-With": "XMLHttpRequest" } }
+                );
+                return await resp.text();
+            }
+        """)
+        is_blocked = check_blacklist_from_html(resp)
+        # 테스트 쿼리 후 딜레이 (다음 요청의 실시간 봇 감지 방지)
+        time.sleep(REQUEST_DELAY)
+        return is_blocked
+    except Exception:
+        return False
+
+
+def check_blacklist_from_html(html: str) -> bool:
+    """검색 응답 HTML에서 블랙리스트 상태 확인.
+    JS 코드의 'Y' 문자열과 구분하기 위해 hidden input의 value만 정확히 매칭한다."""
+    return bool(re.search(r'<input[^>]*id="black"[^>]*value="Y"', html))
+
+
+_last_request_time = 0.0
+
+
 def search_parts(page, maker="H", vtyp="P", cat_seq="", srch_type="normal", search_term=""):
-    """모비스 부품 검색 실행"""
+    """모비스 부품 검색 실행. 블랙리스트 감지 시 MobisBlacklistError 발생."""
+    global _last_request_time
     import urllib.parse
     encoded_term = urllib.parse.quote(search_term)
+
+    # 요청 전 딜레이 (실시간 봇 감지 방지)
+    elapsed = time.time() - _last_request_time
+    if elapsed < REQUEST_DELAY:
+        time.sleep(REQUEST_DELAY - elapsed)
 
     url = (
         f"https://www.mobis-as.com/simple_search_partLoad_v2.do"
@@ -64,6 +121,16 @@ def search_parts(page, maker="H", vtyp="P", cat_seq="", srch_type="normal", sear
             return await resp.text();
         }}
     """)
+    _last_request_time = time.time()
+
+    # 블랙리스트 감지
+    if check_blacklist_from_html(resp):
+        raise MobisBlacklistError(
+            "모비스 IP 블랙리스트 감지. "
+            "브라우저에서 https://www.mobis-as.com/simple_search_part.do 접속 후 "
+            "휴대폰 인증으로 해제하세요."
+        )
+
     return resp
 
 

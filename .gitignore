@@ -15,3 +15,13 @@ build/
 .codex/
 # 개발 테스트 디렉토리 (제출 대상 아님)
 skills/docs/
+
+# 파이프라인 중간 생성 파일 (OCR/조회/검증 결과)
+*_ocr.json
+*_lookup.json
+*_enhanced.json
+*_verify.json
+
+# PDF 리포트 (로컬 생성물)
+견적서_검증_리포트_*.pdf
+generate_report_pdf.py

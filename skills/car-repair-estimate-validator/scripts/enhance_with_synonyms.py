@@ -1,3 +1,4 @@
+from __future__ import annotations
 # -*- coding: utf-8 -*-
 """
 방법 B 적용: 강화된 동의어 사전으로 smart_lookup 결과 보강
