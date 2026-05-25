@@ -29,6 +29,6 @@ generate_report_pdf.py
 # 테스트 가상환경
 .venv-test/
 
-# 데모 캐시 및 백업
+# 로컬 개발용 임시 파일
 scripts/cache/
 *.demo_backup
