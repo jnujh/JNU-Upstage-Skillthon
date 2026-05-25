@@ -97,6 +97,16 @@ from generate_report import generate_report
 from generate_pdf_report import generate_pdf_report
 
 
+# ─── 유틸리티 ────────────────────────────────────────────────────────
+
+def _step_header(title: str, detail: str = ""):
+    """파이프라인 단계 시작을 시각적으로 표시."""
+    print(f"\n{'━' * 42}", file=sys.stderr)
+    msg = f"{title}" if not detail else f"{title} ({detail})"
+    print(msg, file=sys.stderr)
+    print(f"{'━' * 42}", file=sys.stderr)
+
+
 # ─── 파이프라인 ───────────────────────────────────────────────────────
 
 def run_pipeline(
@@ -124,7 +134,7 @@ def run_pipeline(
     base_name = Path(image_paths[0]).stem
 
     # ── Step 1: OCR ──
-    print(f"[1/6] OCR 처리 중... ({len(image_paths)}장)", file=sys.stderr)
+    _step_header("🔍 [1/6] Upstage Document AI로 견적서 OCR 분석 중...", f"{len(image_paths)}장")
     t1 = time.time()
 
     if len(image_paths) == 1:
@@ -135,7 +145,7 @@ def run_pipeline(
         merged_items = []
         base_result = None
         for i, img_path in enumerate(image_paths):
-            print(f"  페이지 {i+1}/{len(image_paths)}: {img_path}", file=sys.stderr)
+            print(f"  📄 페이지 {i+1}/{len(image_paths)} 분석 중...", file=sys.stderr)
             result = parse_estimate_ie(img_path)
             api_calls["information_extract"] += 1
             if base_result is None:
@@ -149,7 +159,7 @@ def run_pipeline(
         base_result["items"] = merged_items
         ocr_result = base_result
 
-    print(f"  → {len(ocr_result.get('items', []))}개 항목 추출 ({time.time()-t1:.1f}초)", file=sys.stderr)
+    print(f"  ✅ {len(ocr_result.get('items', []))}개 정비 항목 추출 완료 ({time.time()-t1:.1f}초)", file=sys.stderr)
 
     if save_intermediate:
         _save_json(ocr_result, output_dir, f"{base_name}_ocr.json")
@@ -158,7 +168,7 @@ def run_pipeline(
         return {"error": "OCR에서 정비 항목을 추출하지 못했습니다.", "ocr_result": ocr_result}
 
     # ── Step 2: 차량 매칭 ──
-    print("[2/6] 차량 모델 매칭 중...", file=sys.stderr)
+    _step_header("🚗 [2/6] Solar LLM으로 차량 모델 매칭 중...")
     t2 = time.time()
 
     vehicle_name = vehicle_hint or ocr_result.get("vehicle_car_model", "")
@@ -171,18 +181,16 @@ def run_pipeline(
         matched = vehicle_match.get("matched_name")
         cat_seq = vehicle_match.get("cat_seq")
         if matched:
-            print(f"  → '{vehicle_name}' → '{matched}' (catSeq={cat_seq})", file=sys.stderr)
+            print(f"  ✅ '{vehicle_name}' → '{matched}' 매칭 완료 ({time.time()-t2:.1f}초)", file=sys.stderr)
         else:
-            print(f"  ⚠ '{vehicle_name}' 매칭 실패. 모비스 부품명 검색 불가 (부품번호만 가능)", file=sys.stderr)
-
-    print(f"  ({time.time()-t2:.1f}초)", file=sys.stderr)
+            print(f"  ⚠ '{vehicle_name}' 매칭 실패. 부품번호 검색만 가능 ({time.time()-t2:.1f}초)", file=sys.stderr)
 
     maker = vehicle_match.get("maker") or "H"
     cat_seq = vehicle_match.get("cat_seq") or ""
     vehicle_model = vehicle_match.get("matched_name") or vehicle_name
 
     # ── Step 3: 가격 조회 (공임나라 웹 조회 + 모비스 웹 조회) ──
-    print("[3/6] 가격 조회 중 (공임나라 + 모비스)...", file=sys.stderr)
+    _step_header("💰 [3/6] 공임나라 + 현대모비스 실시간 가격 조회 중...")
     t3 = time.time()
 
     lookup_result = run_smart_lookup(
@@ -192,32 +200,31 @@ def run_pipeline(
     n_items = len(ocr_result.get("items", []))
     api_calls["solar_chat"] += n_items  # 항목당 1회
 
-    print(f"  ({time.time()-t3:.1f}초)", file=sys.stderr)
+    print(f"  ✅ 가격 조회 완료 ({time.time()-t3:.1f}초)", file=sys.stderr)
 
     if save_intermediate:
         _save_json(lookup_result, output_dir, f"{base_name}_lookup.json")
 
     # ── Step 4: 동의어 사전 매핑 (미매칭 항목 재조회) ──
-    print("[4/6] 동의어 사전 매핑으로 미매칭 항목 재조회 중...", file=sys.stderr)
+    _step_header("📖 [4/6] 동의어 사전으로 미매칭 항목 재조회 중...")
     t4 = time.time()
 
     enhanced_result = enhance_lookup_result(lookup_result)
 
-    print(f"  ({time.time()-t4:.1f}초)", file=sys.stderr)
+    print(f"  ✅ 동의어 매핑 완료 ({time.time()-t4:.1f}초)", file=sys.stderr)
 
     if save_intermediate:
         _save_json(enhanced_result, output_dir, f"{base_name}_enhanced.json")
 
     # ── Step 5: 검증 ──
-    print("[5/6] 검증 분석 중...", file=sys.stderr)
+    _step_header("📊 [5/6] 견적 금액 vs 시장 기준가 편차 검증 중...")
     t5 = time.time()
 
     verify_result = verify_estimate(enhanced_result)
 
-    print(f"  → 커버리지: {verify_result['coverage']['coverage_pct']:.0f}%, "
-          f"판정: {verify_result['overall_verdict']['level_kr']}",
+    print(f"  ✅ 커버리지: {verify_result['coverage']['coverage_pct']:.0f}%, "
+          f"판정: {verify_result['overall_verdict']['level_kr']} ({time.time()-t5:.1f}초)",
           file=sys.stderr)
-    print(f"  ({time.time()-t5:.1f}초)", file=sys.stderr)
 
     if save_intermediate:
         _save_json(verify_result, output_dir, f"{base_name}_verify.json")
@@ -229,7 +236,7 @@ def run_pipeline(
         print(f"  ⚠ 비교불가 항목 {unmatched_count}건 — 에이전트 웹 검색으로 보충 필요", file=sys.stderr)
 
     # ── Step 6: 리포트 생성 ──
-    print("[6/6] 리포트 생성 중...", file=sys.stderr)
+    _step_header("📝 [6/6] 한국어 검증 리포트 생성 중...")
     report_md = generate_report(verify_result)
 
     report_pdf_path = ""
@@ -239,11 +246,13 @@ def run_pipeline(
         print(f"  → PDF 저장: {report_pdf_path}", file=sys.stderr)
 
     elapsed = time.time() - t_start
-    print(f"\n✅ 완료 ({elapsed:.1f}초)", file=sys.stderr)
-    print(f"API 호출: IE {api_calls['information_extract']}회, "
+    print(f"\n{'━' * 42}", file=sys.stderr)
+    print(f"✅ 파이프라인 완료! ({elapsed:.1f}초)", file=sys.stderr)
+    print(f"  API 호출: IE {api_calls['information_extract']}회, "
           f"Solar Chat ~{api_calls['solar_chat']}회, "
           f"공임나라 {api_calls['gongim']}회",
           file=sys.stderr)
+    print(f"{'━' * 42}", file=sys.stderr)
 
     return {
         "report_md": report_md,

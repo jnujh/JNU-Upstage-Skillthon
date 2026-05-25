@@ -173,10 +173,10 @@ JSON 배열만 반환하세요. 항목 순서를 유지하세요."""
 
         if parsed and isinstance(parsed, list) and len(parsed) == len(batch):
             all_mappings.extend(parsed)
-            print(f"  배치 {batch_start//batch_size+1}: {len(batch)}건 매핑 완료", file=sys.stderr)
+            print(f"    배치 {batch_start//batch_size+1}: {len(batch)}건 매핑 완료", file=sys.stderr)
         else:
             # 배치 실패 → 개별 호출 fallback
-            print(f"  배치 {batch_start//batch_size+1}: 배치 실패, 개별 호출로 전환", file=sys.stderr)
+            print(f"    배치 {batch_start//batch_size+1}: 배치 실패, 개별 호출로 전환", file=sys.stderr)
             for item in batch:
                 mapping = match_single_item(item, vehicle_model)
                 all_mappings.append(mapping)
@@ -198,7 +198,7 @@ def run_smart_lookup(ocr_result: dict, maker: str = "H", cat_seq: str = "", vehi
         vehicle_model = ocr_result.get("vehicle_car_model", "알 수 없음")
 
     # Step 1: Solar Chat으로 항목 배치 매핑 (5개씩)
-    print(f"[1/3] Solar Chat으로 {len(items)}개 항목 매핑 중 (배치)...", file=sys.stderr)
+    print(f"  📋 Solar LLM으로 {len(items)}개 항목 분류 중...", file=sys.stderr)
     raw_mappings = match_items_batch(items, vehicle_model, batch_size=5)
     mappings = []
     for i, (item, mapping) in enumerate(zip(items, raw_mappings)):
@@ -211,7 +211,7 @@ def run_smart_lookup(ocr_result: dict, maker: str = "H", cat_seq: str = "", vehi
     mapping_by_line = {m["line_number"]: m for m in mappings}
 
     # Step 2: 공임나라 조회
-    print("[2/3] 공임나라 공임비 조회 중...", file=sys.stderr)
+    print(f"  🔧 공임나라 표준 공임비 조회 중...", file=sys.stderr)
     categories = get_categories()
     cat_by_name = {c["name"]: c["id"] for c in categories}
 
@@ -226,10 +226,10 @@ def run_smart_lookup(ocr_result: dict, maker: str = "H", cat_seq: str = "", vehi
         cat_id = cat_by_name[cat_name]
         result = get_labor_costs(cate_sub_no=cat_id)
         gongim_data[cat_name] = result.get("items", [])
-        print(f"  공임나라 '{cat_name}': {len(gongim_data[cat_name])}건", file=sys.stderr)
+        print(f"    공임나라 '{cat_name}': {len(gongim_data[cat_name])}건", file=sys.stderr)
 
     # Step 3: 모비스 부품 검색
-    print("[3/3] 모비스 부품가격 조회 중...", file=sys.stderr)
+    print(f"  🔩 현대모비스 순정 부품가 조회 중...", file=sys.stderr)
     mobis_results = {}
 
     # 3-A: 부품번호가 있는 항목은 부품번호로 직접 검색
@@ -276,9 +276,9 @@ def run_smart_lookup(ocr_result: dict, maker: str = "H", cat_seq: str = "", vehi
                         result = parse_parts_html(html)
                         if result["total"] > 0:
                             mobis_results[f"ptno:{ptno}"] = result
-                            print(f"  모비스 부품번호 '{ptno}': {result['total']}건 ({result['parts'][0]['price_krw']:,}원)", file=sys.stderr)
+                            print(f"    모비스 부품번호 '{ptno}': {result['total']}건 ({result['parts'][0]['price_krw']:,}원)", file=sys.stderr)
                         else:
-                            print(f"  모비스 부품번호 '{ptno}': 조회 불가", file=sys.stderr)
+                            print(f"    모비스 부품번호 '{ptno}': 조회 불가", file=sys.stderr)
 
                     # 부품명 검색
                     if cat_seq:
@@ -287,9 +287,9 @@ def run_smart_lookup(ocr_result: dict, maker: str = "H", cat_seq: str = "", vehi
                             result = parse_parts_html(html)
                             mobis_results[part_name] = result
                             if result["total"] > 0:
-                                print(f"  모비스 '{part_name}': {result['total']}건", file=sys.stderr)
+                                print(f"    모비스 '{part_name}': {result['total']}건", file=sys.stderr)
                             else:
-                                print(f"  모비스 '{part_name}': 0건", file=sys.stderr)
+                                print(f"    모비스 '{part_name}': 0건", file=sys.stderr)
 
                 except MobisBlacklistError as e:
                     print(f"  ⛔ {e}", file=sys.stderr)

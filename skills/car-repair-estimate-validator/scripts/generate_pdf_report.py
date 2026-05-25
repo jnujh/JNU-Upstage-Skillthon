@@ -1,3 +1,4 @@
+from __future__ import annotations
 # -*- coding: utf-8 -*-
 """
 PDF 검증 리포트 생성 — verify_estimate JSON → 스타일드 HTML → PDF
