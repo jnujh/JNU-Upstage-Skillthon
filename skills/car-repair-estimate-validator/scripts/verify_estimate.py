@@ -28,7 +28,7 @@ THRESHOLD_HIGH = 30         # +15~30%: 높음
 # +30% 이상: 매우 높음 / -15% 이하: 낮음
 
 # 매칭 신뢰도 — 가격 규모 비율 상한
-MAGNITUDE_RATIO_LIMIT = 5   # reference/estimate 또는 역이 5배 이상이면 신뢰도 낮음
+MAGNITUDE_RATIO_LIMIT = 3   # reference/estimate 또는 역이 3배 이상이면 신뢰도 낮음
 
 # 부품명 검색 가격 범위 비율 상한
 PRICE_RANGE_RATIO_LIMIT = 3  # max/min > 3이면 신뢰도 낮음
@@ -89,19 +89,26 @@ def _classify_item(item: dict) -> str:
 
 
 def _has_keyword_overlap(desc: str, work_type: str) -> bool:
-    """두 문자열 사이에 의미 있는 키워드 겹침이 있는지 확인."""
+    """두 문자열 사이에 의미 있는 키워드 겹침이 있는지 확인 (부분문자열 매칭 포함)."""
     stopwords = {"교환", "교체", "수리", "조립", "분해", "탈착", "좌", "우", "앞", "뒤",
-                 "프런트", "리어", "양쪽", "1개", "세트", "어셈블리", "프론트"}
+                 "프런트", "리어", "양쪽", "1개", "세트", "어셈블리", "프론트", "포함", "및",
+                 "승용차", "좌우", "1SET",
+                 "브레이크", "엔진", "자동차", "차량", "정비", "작업", "점검", "키트"}
 
     def extract_keywords(text: str) -> set:
-        # 간단한 키워드 추출: 2글자 이상, stopword 제외
-        text = text.replace("\r\n", " ").replace("-", " ").replace("(", " ").replace(")", " ")
+        text = text.replace("\r\n", " ").replace("-", " ").replace("(", " ").replace(")", " ").replace(",", " ")
         words = text.split()
         return {w for w in words if len(w) >= 2 and w not in stopwords}
 
     kw1 = extract_keywords(desc)
     kw2 = extract_keywords(work_type)
-    return bool(kw1 & kw2)
+    if kw1 & kw2:
+        return True
+    for a in kw1:
+        for b in kw2:
+            if len(a) >= 2 and len(b) >= 2 and (a in b or b in a):
+                return True
+    return False
 
 
 def _assess_match_quality(item: dict) -> dict:

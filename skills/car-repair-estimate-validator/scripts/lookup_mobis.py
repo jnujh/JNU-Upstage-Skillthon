@@ -50,7 +50,7 @@ def search_parts(page, maker="H", vtyp="P", cat_seq="", srch_type="normal", sear
     encoded_term = urllib.parse.quote(search_term)
 
     url = (
-        f"https://www.mobis-as.com/simple_search_partLoad.do"
+        f"https://www.mobis-as.com/simple_search_partLoad_v2.do"
         f"?pageIndex=1&hkgb={maker}&vtyp={vtyp}"
         f"&catSeq={cat_seq}&srchType={srch_type}&inText={encoded_term}"
     )

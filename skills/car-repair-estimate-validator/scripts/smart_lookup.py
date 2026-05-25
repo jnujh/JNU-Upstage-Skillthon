@@ -54,7 +54,7 @@ def solar_chat(prompt: str, system: str = "") -> str:
     resp = client.chat.completions.create(
         model="solar-pro3",
         messages=messages,
-        temperature=0.1,
+        temperature=0,
         max_tokens=300
     )
     return resp.choices[0].message.content.strip()
@@ -259,8 +259,10 @@ def run_smart_lookup(ocr_result: dict, maker: str = "H", cat_seq: str = "", vehi
             page.goto("https://www.mobis-as.com/simple_search_part.do", timeout=15000)
             page.wait_for_load_state("networkidle", timeout=10000)
 
-            # 부품번호 직접 검색
+            # 부품번호 직접 검색 (매 검색 전 페이지 새로고침 필요)
             for ptno, desc in part_numbers.items():
+                page.goto("https://www.mobis-as.com/simple_search_part.do", timeout=15000)
+                page.wait_for_load_state("networkidle", timeout=10000)
                 html = search_parts(page, maker=maker, srch_type="ptno", search_term=ptno)
                 result = parse_parts_html(html)
                 if result["total"] > 0:
@@ -272,6 +274,8 @@ def run_smart_lookup(ocr_result: dict, maker: str = "H", cat_seq: str = "", vehi
             # 부품명 검색
             if cat_seq:
                 for part_name in needed_parts:
+                    page.goto("https://www.mobis-as.com/simple_search_part.do", timeout=15000)
+                    page.wait_for_load_state("networkidle", timeout=10000)
                     html = search_parts(page, maker=maker, vtyp="P", cat_seq=cat_seq, search_term=part_name)
                     result = parse_parts_html(html)
                     mobis_results[part_name] = result

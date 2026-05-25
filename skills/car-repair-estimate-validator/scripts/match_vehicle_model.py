@@ -106,7 +106,7 @@ def match_vehicle_model(user_input: str) -> dict:
             {"role": "system", "content": "정확한 JSON만 반환하세요. 다른 텍스트는 포함하지 마세요."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.1,
+        temperature=0,
         max_tokens=200
     )
 

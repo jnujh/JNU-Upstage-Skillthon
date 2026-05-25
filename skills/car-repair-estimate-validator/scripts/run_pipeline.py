@@ -307,3 +307,42 @@ if __name__ == "__main__":
         print(f"리포트 저장: {args.output}", file=sys.stderr)
     else:
         print(result["report_md"])
+
+    # ── 비교불가 항목이 있으면 에이전트 웹 검색 지시 출력 ──
+    if not args.json:
+        no_ref = [it for it in result["verify_result"]["items"]
+                  if it["status"] in ("no_reference", "low_confidence")]
+        if no_ref:
+            vehicle = result["verify_result"]["input_summary"]["vehicle_model"]
+            lines = [
+                "",
+                "=" * 60,
+                "⚠️  AGENT ACTION REQUIRED — 이 리포트는 아직 미완성입니다",
+                "=" * 60,
+                "",
+                f"비교불가 {len(no_ref)}건에 대해 웹 검색을 수행한 후,",
+                "보충 결과를 포함한 최종 리포트만 사용자에게 전달하세요.",
+                "위 리포트를 그대로 사용자에게 출력하지 마세요.",
+                "",
+                "아래 항목을 웹 검색하세요:",
+            ]
+            for it in no_ref:
+                desc = it["raw_description"] or "(항목명 OCR 누락)"
+                labor = it.get("estimate_labor", 0)
+                parts = it.get("estimate_parts", 0)
+                part_code = it.get("part_code", "")
+                if labor > 0:
+                    lines.append(f'  - 공임: "{vehicle} {desc} 공임비" → 견적 {labor:,}원과 비교')
+                if parts > 0:
+                    if part_code:
+                        lines.append(f'  - 부품: "{part_code} 현대모비스 가격" → 견적 {parts:,}원과 비교')
+                    else:
+                        lines.append(f'  - 부품: "{vehicle} {desc} 부품 가격" → 견적 {parts:,}원과 비교')
+                if labor == 0 and parts == 0:
+                    total = it.get("estimate_total", 0)
+                    if total > 0:
+                        lines.append(f'  - 총액: "{vehicle} {desc} 비용" → 견적 {total:,}원과 비교')
+            lines.append("")
+            lines.append("검색 후 리포트에 '## 웹 검색 보충 정보' 섹션을 추가하여 전달하세요.")
+            lines.append("=" * 60)
+            print("\n".join(lines))
